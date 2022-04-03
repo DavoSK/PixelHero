@@ -1,11 +1,13 @@
 // ピクセルヒーロー
 
 use bevy::prelude::*;
+use bevy_inspector_egui::{WorldInspectorPlugin, Inspectable, RegisterInspectable};
+
 use bevy::{
     input::{keyboard::KeyCode, Input},
 };
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 struct Player {
     health: f32,
     speed: f32,
@@ -13,7 +15,7 @@ struct Player {
     is_local: bool
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 struct Movement {
     dir: Vec2,
     velocity: Vec2
@@ -26,6 +28,9 @@ fn create_player() -> Player {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(WorldInspectorPlugin::new())
+        .register_inspectable::<Movement>()
+        .register_inspectable::<Player>()
         .add_startup_system(setup)
         .add_system(animate_sprite_system)
         .add_system(local_player_input_system)
