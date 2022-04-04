@@ -1,4 +1,6 @@
 // ピクセルヒーロー
+use serde::{Deserialize, Serialize};
+use serde_json::Result;
 
 use bevy::prelude::*;
 use bevy_inspector_egui::{WorldInspectorPlugin, Inspectable, RegisterInspectable};
@@ -11,13 +13,30 @@ use bevy::{
 struct Player {
     health: f32,
     speed: f32,
-    animation_state: i32,
+    animation_state: u32,
     is_local: bool
 }
 
-const ATLAS_ROW_LENGTH: usize = 4;
+fn is_animation_idle(state: u32) -> bool {
+    state > 3
+}
 
-#[derive(Copy, Clone)]
+#[derive(Deserialize)]
+struct AnimationFrame {
+    name: String,
+    duration: f32
+}
+
+#[derive(Component, Deserialize)]
+struct Animation {
+    texture_atlas: String,
+    row_cnt: i32,
+    tile_size: u32,
+    frames: Vec<AnimationFrame>,
+    current_col_idx: i32,
+    last_frame_time: f32
+}
+
 enum AnimationState {
     FrontLeft,
     FrontRight,
@@ -27,15 +46,6 @@ enum AnimationState {
     IdleFrontRight,
     IdleBackLeft,
     IdleBackRight
-}
-
-fn is_animation_idle(state: AnimationState) -> bool {
-    (state as usize) > 3
-}
-
-#[derive(Component)]
-struct Animation {
-    anim: AnimationState,
 }
 
 #[derive(Component, Inspectable)]
@@ -65,20 +75,31 @@ fn main() {
 
 fn animate_sprite_system(
     time: Res<Time>,
-    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Animation)>
+    mut query: Query<(&mut TextureAtlasSprite, &mut Animation)>
 ) {
-    for (mut timer, mut sprite, animation) in query.iter_mut() {
-        timer.tick(time.delta());
-        if timer.finished() {
-            let anim_idx_min = (animation.anim as usize) * ATLAS_ROW_LENGTH;
-            let anim_idx_max = anim_idx_min + ATLAS_ROW_LENGTH - 1;
+    for (mut sprite, mut animation) in query.iter_mut() {
+        animation.last_frame_time = time.delta_seconds();
+        let current_frame = &animation.frames[animation.current_col_idx as usize];
+        if animation.last_frame_time > current_frame.duration {
+            animation.last_frame_time = 0.0;
 
-            if sprite.index < anim_idx_min {
-                sprite.index = anim_idx_min;
-            } else if sprite.index >= anim_idx_max {
-                sprite.index = anim_idx_min;
+            animation.current_col_idx = animation.current_col_idx + 1;
+            if animation.current_col_idx == animation.frames.len() as i32 {
+                animation.current_col_idx = 0;
+            }
+
+            let anim_idx_mini = animation.current_col_idx * animation.row_cnt;
+            let anim_idx_maxi = anim_idx_mini + animation.row_cnt - 1;
+
+            let min_u = anim_idx_mini as usize;
+            let max_u = anim_idx_maxi as usize;
+
+            if sprite.index < min_u {
+                sprite.index = min_u;
+            } else if sprite.index >= max_u {
+                sprite.index = max_u;
             } else {
-                sprite.index = sprite.index + 1;
+                sprite.index = max_u;
             }
         }
     }
@@ -119,7 +140,7 @@ fn get_animation_from_movement(movement: &Movement) -> AnimationState {
 
 fn entity_movement_animator_system(mut query: Query<(&mut Animation, &Movement)>) {
     for (mut animation, movement) in query.iter_mut() {
-        animation.anim = get_animation_from_movement(movement);
+        animation.current_col_idx = get_animation_from_movement(movement) as i32;
     }
 }
 
@@ -141,6 +162,15 @@ fn local_player_input_system(keyboard_input: Res<Input<KeyCode>>, mut query: Que
     }
 }
 
+use std::error::Error;
+fn read_anim_from_file<P: AsRef<std::path::Path>>(path: P) -> Animation {
+    let file = std::fs::File::open(path).unwrap();
+    let reader = std::io::BufReader::new(file);
+    let mut de = serde_json::Deserializer::from_reader(reader);
+    let u = Animation::deserialize(&mut de).unwrap();
+    u
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -158,6 +188,6 @@ fn setup(
         })
         .insert(Timer::from_seconds(0.1, true))
         .insert(Movement{ dir: Vec2::default(), velocity: Vec2::default(), last_moving_dir: Vec2::default()})
-        .insert(Animation{ anim: AnimationState::FrontRight })
+        .insert(read_anim_from_file("assets/player.json"))
         .insert(create_player());
 }

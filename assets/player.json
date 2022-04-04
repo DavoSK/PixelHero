@@ -1,0 +1,42 @@
+{
+  "type": "player",
+  "animation": {
+    "texture_atlas": "warior.png",
+    "row_cnt": 4,
+    "tile_size": 16,
+    "frames": [
+      {
+        "name": "FrontLeft",
+        "duration": 0.1
+      },
+      {
+        "name": "FrontRight",
+        "duration": 0.1
+      },
+      {
+        "name": "BackLeft",
+        "duration": 0.1
+      },
+      {
+        "name": "BackRight",
+        "duration": 0.1
+      },
+      {
+        "name": "IdleFrontLeft",
+        "duration": 0.4
+      },
+      {
+        "name": "IdleFrontRight",
+        "duration": 0.4
+      },
+      {
+        "name": "IdleBackLeft",
+        "duration": 0.4
+      },
+      {
+        "name": "IdleBackRight",
+        "duration": 0.4
+      }
+    ]
+  }
+}
